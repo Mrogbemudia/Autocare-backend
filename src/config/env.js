@@ -9,6 +9,9 @@ const schema = z.object({
   ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   CORS_ORIGIN: z.string().optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -17,6 +20,11 @@ if (!parsed.success) {
   process.exit(1);
 }
 const e = parsed.data;
+const cloudinaryValues = [e.CLOUDINARY_CLOUD_NAME, e.CLOUDINARY_API_KEY, e.CLOUDINARY_API_SECRET];
+if (cloudinaryValues.some(Boolean) && !cloudinaryValues.every(Boolean)) {
+  console.error('Invalid environment variables: set all three CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET values.');
+  process.exit(1);
+}
 
 export const env = {
   nodeEnv: e.NODE_ENV,
@@ -27,5 +35,10 @@ export const env = {
   jwtAccessSecret: e.JWT_ACCESS_SECRET,
   accessTtlMinutes: e.ACCESS_TOKEN_TTL_MINUTES,
   refreshTtlDays: e.REFRESH_TOKEN_TTL_DAYS,
+  cloudinary: cloudinaryValues.every(Boolean) ? {
+    cloudName: e.CLOUDINARY_CLOUD_NAME,
+    apiKey: e.CLOUDINARY_API_KEY,
+    apiSecret: e.CLOUDINARY_API_SECRET,
+  } : null,
   corsOrigins: e.CORS_ORIGIN ? e.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean) : [],
 };

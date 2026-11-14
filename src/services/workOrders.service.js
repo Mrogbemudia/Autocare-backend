@@ -1,8 +1,10 @@
 import { withTransaction } from '../db.js';
 import { badRequest, conflict, notFound } from '../utils/httpError.js';
 import { offsetOf, pageMeta } from '../utils/respond.js';
+import * as repairPlans from '../queries/repairPlans.queries.js';
 import * as wo from '../queries/workOrders.queries.js';
 import * as requests from '../queries/serviceRequests.queries.js';
+import { mediaDeliveryUrl } from './cloudinary.service.js';
 
 // The status pipeline. 'approval_pending' is NOT a manual target: only an extra-work request puts a job there.
 const TRANSITIONS = {
@@ -20,6 +22,10 @@ const EXTRA_ALLOWED_FROM = ['inspection', 'in_repair'];
 const withTotals = ({ shop_user_id, ...w }) => ({
   ...w,
   final_cost_kobo: w.quoted_total_kobo + w.approved_extras_kobo,
+  repair_plan: w.repair_plan && {
+    ...w.repair_plan,
+    media: (w.repair_plan.media ?? []).map((media) => ({ ...media, url: mediaDeliveryUrl(media) })),
+  },
 });
 
 async function loadForUser(user, id) {
@@ -47,6 +53,9 @@ export async function changeStatus(user, id, { status, note }) {
     if (!job) throw notFound('Job not found');
     if (!TRANSITIONS[job.status].includes(status)) {
       throw badRequest(`A job in "${job.status}" cannot move to "${status}"`, 'INVALID_TRANSITION');
+    }
+    if (status === 'in_repair' && !(await repairPlans.hasApprovedPlan(id, client))) {
+      throw conflict('REPAIR_PLAN_NOT_APPROVED', 'The owner must approve a repair plan before repairs can start.');
     }
     // Approval Lock, enforced on the server (and again by a database trigger).
     if (await wo.hasPendingExtra(id, client)) {

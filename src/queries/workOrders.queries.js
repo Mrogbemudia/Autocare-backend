@@ -7,7 +7,20 @@ const WORK_ORDER_SELECT = `
                     WHERE e.work_order_id = wo.id AND e.status = 'approved'), 0)::bigint AS approved_extras_kobo,
          s.business_name AS shop_name, s.user_id AS shop_user_id,
          v.vehicle_type, v.make, v.model, v.year, v.plate_number,
-         ou.full_name AS owner_name
+         ou.full_name AS owner_name,
+         (SELECT json_build_object(
+                   'id', rp.id, 'version', rp.version, 'technician_findings', rp.technician_findings,
+                   'parts_plan', rp.parts_plan, 'labour_plan', rp.labour_plan, 'notes', rp.notes,
+                   'status', rp.status, 'review_note', rp.review_note, 'reviewed_at', rp.reviewed_at,
+                   'created_at', rp.created_at,
+                   'media', (SELECT COALESCE(json_agg(json_build_object(
+                                      'id', m.id, 'public_id', m.public_id, 'resource_type', m.resource_type,
+                                      'format', m.format, 'version', m.version, 'bytes', m.bytes)
+                                    ORDER BY m.created_at, m.id), '[]'::json)
+                               FROM repair_media m WHERE m.repair_plan_id = rp.id))
+            FROM repair_plans rp
+           WHERE rp.work_order_id = wo.id
+           ORDER BY rp.version DESC LIMIT 1) AS repair_plan
     FROM work_orders wo
     JOIN shops    s  ON s.id  = wo.shop_id
     JOIN vehicles v  ON v.id  = wo.vehicle_id
@@ -51,6 +64,16 @@ export async function lockWorkOrderForShopUser(id, shopUserId, client) {
        FROM work_orders wo JOIN shops s ON s.id = wo.shop_id
       WHERE wo.id = $1 AND s.user_id = $2
         FOR UPDATE OF wo`,
+    [id, shopUserId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function findWorkOrderForShopUser(id, shopUserId) {
+  const { rows } = await query(
+    `SELECT wo.id, wo.status, wo.owner_id
+       FROM work_orders wo JOIN shops s ON s.id = wo.shop_id
+      WHERE wo.id = $1 AND s.user_id = $2`,
     [id, shopUserId],
   );
   return rows[0] ?? null;

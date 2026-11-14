@@ -20,3 +20,10 @@ export const extraWorkBody = z.object({
 }).strict();
 
 export const extraDecisionBody = z.object({ note: z.string().trim().max(500).optional() }).strict();
+export const repairPlanBody = z.object({
+  technicianFindings: z.string().trim().min(10).max(2000),
+  partsPlan: z.string().trim().min(2).max(2000),
+  labourPlan: z.string().trim().min(2).max(2000),
+  notes: z.string().trim().max(1000).optional(),
+}).strict();
+export const repairPlanDecisionBody = z.object({ note: z.string().trim().max(500).optional() }).strict();

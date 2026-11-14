@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validate } from '../middleware/validate.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
+import { receiveRepairMedia } from '../middleware/repairMediaUpload.js';
 import { idParams } from '../validators/common.js';
 import * as v from '../validators/serviceRequests.validators.js';
 import * as c from '../controllers/serviceRequests.controller.js';
@@ -9,7 +10,7 @@ const r = Router();
 r.use(authenticate);
 
 // requests
-r.post('/service-requests', requireRole('owner'), validate({ body: v.createRequestBody }), c.create);
+r.post('/service-requests', requireRole('owner'), receiveRepairMedia, validate({ body: v.createRequestBody }), c.create);
 r.get('/service-requests', requireRole('owner', 'shop', 'admin'), validate({ query: v.listRequestsQuery }), c.list);
 r.get('/service-requests/:id', validate({ params: idParams }), c.get);
 r.post('/service-requests/:id/cancel', requireRole('owner'), validate({ params: idParams }), c.cancel);

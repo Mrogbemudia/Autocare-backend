@@ -4,7 +4,10 @@ import * as requests from '../services/serviceRequests.service.js';
 import * as quotes from '../services/quotes.service.js';
 import * as bookings from '../services/bookings.service.js';
 
-export const create = asyncHandler(async (req, res) => created(res, await requests.create(req.user, req.body)));
+export const create = asyncHandler(async (req, res) => {
+  const files = [...(req.files?.images ?? []), ...(req.files?.video ?? [])];
+  created(res, await requests.create(req.user, req.body, files));
+});
 export const list = asyncHandler(async (req, res) => {
   const { data, meta } = await requests.list(req.user, req.query);
   ok(res, data, meta);
