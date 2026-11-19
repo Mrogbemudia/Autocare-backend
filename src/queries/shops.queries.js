@@ -122,6 +122,34 @@ export async function updateShop(shopId, f, client) {
 }
 
 // ---- admin ----
+export async function getAdminStats() {
+  const { rows } = await query(`
+    SELECT
+      (SELECT COALESCE(json_object_agg(status, count), '{}'::json) FROM (
+        SELECT verification_status AS status, count(*)::int AS count
+        FROM shops GROUP BY verification_status
+      ) shop_counts) AS shops,
+      (SELECT COALESCE(json_object_agg(role, count), '{}'::json) FROM (
+        SELECT role, count(*)::int AS count
+        FROM users GROUP BY role
+      ) user_counts) AS users,
+      (SELECT COALESCE(json_object_agg(status, count), '{}'::json) FROM (
+        SELECT status, count(*)::int AS count
+        FROM work_orders GROUP BY status
+      ) job_counts) AS jobs_by_stage,
+      (SELECT COALESCE(json_agg(json_build_object(
+        'id', s.id,
+        'business_name', s.business_name,
+        'state', s.state,
+        'city_area', s.city_area,
+        'created_at', s.created_at
+      ) ORDER BY s.created_at ASC), '[]'::json)
+       FROM shops s
+       WHERE s.verification_status = 'pending') AS pending_shops
+  `);
+  return rows[0];
+}
+
 export async function listShopsForAdmin({ status, limit, offset }) {
   const { rows: c } = await query('SELECT count(*) AS total FROM shops WHERE verification_status = $1', [status]);
   const { rows } = await query(

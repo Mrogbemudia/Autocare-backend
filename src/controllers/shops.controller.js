@@ -17,5 +17,7 @@ export const adminList = asyncHandler(async (req, res) => {
   const { data, meta } = await shops.adminList(req.query);
   ok(res, data, meta);
 });
+export const adminStats = asyncHandler(async (req, res) =>
+  ok(res, await sq.getAdminStats()));
 export const adminDecision = (action) => asyncHandler(async (req, res) =>
   ok(res, await shops.adminDecide(action, req.params.id, req.user.id, req.body.note)));

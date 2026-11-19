@@ -7,6 +7,7 @@ import * as c from '../controllers/shops.controller.js';
 
 const r = Router();
 r.use(authenticate, requireRole('admin'));
+r.get('/stats', c.adminStats);
 r.get('/shops', validate({ query: adminListQuery }), c.adminList);
 r.post('/shops/:id/verify',  validate({ params: idParams, body: approveBody }), c.adminDecision('verify'));
 r.post('/shops/:id/reject',  validate({ params: idParams, body: reasonBody }),  c.adminDecision('reject'));
