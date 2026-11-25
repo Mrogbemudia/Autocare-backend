@@ -6,6 +6,8 @@ export class HttpError extends Error {
     this.details = details;
   }
 }
+export const httpError = (status, message, code = 'HTTP_ERROR', details) =>
+  new HttpError(status, code, message, details);
 export const badRequest   = (message, code = 'BAD_REQUEST', details) => new HttpError(400, code, message, details);
 export const unauthorized = (message = 'Authentication required', code = 'UNAUTHORIZED') => new HttpError(401, code, message);
 export const forbidden    = (message = 'You do not have permission to do that', code = 'FORBIDDEN') => new HttpError(403, code, message);

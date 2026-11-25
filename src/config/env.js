@@ -12,6 +12,12 @@ const schema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().trim().optional(),
   CLOUDINARY_API_KEY: z.string().trim().optional(),
   CLOUDINARY_API_SECRET: z.string().trim().optional(),
+  PAYSTACK_SECRET_KEY: z.string().trim().optional(),
+  PAYSTACK_PUBLIC_KEY: z.string().trim().optional(),
+  TURN_URL: z.string().trim().optional(),
+  TURN_USERNAME: z.string().trim().optional(),
+  TURN_CREDENTIAL: z.string().trim().optional(),
+  FRONTEND_URL: z.string().trim().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -40,5 +46,15 @@ export const env = {
     apiKey: e.CLOUDINARY_API_KEY,
     apiSecret: e.CLOUDINARY_API_SECRET,
   } : null,
+  paystack: e.PAYSTACK_SECRET_KEY && e.PAYSTACK_PUBLIC_KEY ? {
+    secretKey: e.PAYSTACK_SECRET_KEY,
+    publicKey: e.PAYSTACK_PUBLIC_KEY,
+  } : null,
+  turn: e.TURN_URL ? {
+    urls: e.TURN_URL,
+    username: e.TURN_USERNAME,
+    credential: e.TURN_CREDENTIAL,
+  } : null,
+  frontendUrl: e.FRONTEND_URL,
   corsOrigins: e.CORS_ORIGIN ? e.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean) : [],
 };

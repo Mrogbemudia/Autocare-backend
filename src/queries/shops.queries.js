@@ -129,6 +129,10 @@ export async function getAdminStats() {
         SELECT verification_status AS status, count(*)::int AS count
         FROM shops GROUP BY verification_status
       ) shop_counts) AS shops,
+      (SELECT COALESCE(json_object_agg(status, count), '{}'::json) FROM (
+        SELECT verification_status AS status, count(*)::int AS count
+        FROM parts_shops GROUP BY verification_status
+      ) parts_shop_counts) AS parts_shops,
       (SELECT COALESCE(json_object_agg(role, count), '{}'::json) FROM (
         SELECT role, count(*)::int AS count
         FROM users GROUP BY role
@@ -137,6 +141,19 @@ export async function getAdminStats() {
         SELECT status, count(*)::int AS count
         FROM work_orders GROUP BY status
       ) job_counts) AS jobs_by_stage,
+      (SELECT COALESCE(json_object_agg(status, count), '{}'::json) FROM (
+        SELECT status, count(*)::int AS count
+        FROM parts_orders GROUP BY status
+      ) parts_order_counts) AS parts_orders,
+      (SELECT COALESCE(json_agg(json_build_object(
+        'id', s.id,
+        'business_name', s.business_name,
+        'state', s.state,
+        'city_area', s.city_area,
+        'created_at', s.created_at
+      ) ORDER BY s.created_at ASC), '[]'::json)
+       FROM parts_shops s
+       WHERE s.verification_status = 'pending') AS pending_parts_shops,
       (SELECT COALESCE(json_agg(json_build_object(
         'id', s.id,
         'business_name', s.business_name,
@@ -146,6 +163,13 @@ export async function getAdminStats() {
       ) ORDER BY s.created_at ASC), '[]'::json)
        FROM shops s
        WHERE s.verification_status = 'pending') AS pending_shops
+      ,
+      (SELECT json_build_object(
+        'paid_kobo', COALESCE((SELECT sum(amount_kobo) FROM payments WHERE status='paid'),0),
+        'released_kobo', COALESCE((SELECT sum(amount_kobo) FROM payments WHERE status='released'),0),
+        'pending_payout_kobo', COALESCE((SELECT sum(amount_kobo) FROM payouts WHERE status='pending'),0),
+        'paid_payout_kobo', COALESCE((SELECT sum(amount_kobo) FROM payouts WHERE status='paid'),0)
+      )) AS revenue
   `);
   return rows[0];
 }
@@ -153,7 +177,7 @@ export async function getAdminStats() {
 export async function listShopsForAdmin({ status, limit, offset }) {
   const { rows: c } = await query('SELECT count(*) AS total FROM shops WHERE verification_status = $1', [status]);
   const { rows } = await query(
-    `${SHOP_SELECT.replace('u.phone,', 'u.phone, u.email, u.full_name AS owner_name,')}
+    `${SHOP_SELECT.replace('u.phone,', 'u.full_name AS owner_name,')}
       WHERE s.verification_status = $1
       ORDER BY s.created_at ASC LIMIT $2 OFFSET $3`,
     [status, limit, offset],

@@ -15,6 +15,12 @@ export const registerShop = asyncHandler(async (req, res) => {
   created(res, { user, shop });
 });
 
+export const registerPartsShop = asyncHandler(async (req, res) => {
+  const { user, partsShop, session } = await auth.registerPartsShop(req.body);
+  setAuthCookies(res, session);
+  created(res, { user, partsShop });
+});
+
 export const login = asyncHandler(async (req, res) => {
   const { user, shop, session } = await auth.login(req.body);
   setAuthCookies(res, session);

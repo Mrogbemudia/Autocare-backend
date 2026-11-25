@@ -47,6 +47,7 @@ export async function uploadRepairMedia(file, { userId, folder }) {
           ));
           return;
         }
+
         if (status === 413) {
           reject(new HttpError(
             413,
@@ -81,6 +82,34 @@ export async function uploadRepairMedia(file, { userId, folder }) {
     stream.on('error', (error) => {
       console.error('Cloudinary upload stream failed:', error.message);
       reject(new HttpError(502, 'MEDIA_UPLOAD_FAILED', 'The media upload stream failed. Please try again.'));
+    });
+    stream.end(file.buffer);
+  });
+}
+
+export async function uploadDocument(file, { userId, folder }) {
+  requireCloudinary();
+  const publicId = randomUUID();
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream({
+      resource_type: 'image',
+      type: 'authenticated',
+      folder: `kaza/${folder}/${userId}`,
+      public_id: publicId,
+      overwrite: false,
+      unique_filename: false,
+    }, (error, result) => {
+      if (error || !result) {
+        reject(new HttpError(502, 'DOCUMENT_UPLOAD_FAILED', 'Cloudinary could not save this document.'));
+        return;
+      }
+      resolve({
+        publicId: result.public_id,
+        resourceType: result.resource_type,
+        format: result.format,
+        version: result.version,
+        bytes: result.bytes,
+      });
     });
     stream.end(file.buffer);
   });

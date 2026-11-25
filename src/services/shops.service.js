@@ -4,13 +4,12 @@ import { offsetOf, pageMeta } from '../utils/respond.js';
 import * as shops from '../queries/shops.queries.js';
 import * as users from '../queries/users.queries.js';
 
-// Guests never see phone numbers (default for Q10). No email is ever exposed publicly.
-const publicShop = (s, viewer) => ({
+// Phone numbers are deliberately omitted from every shop response, including authenticated views.
+const publicShop = (s) => ({
   id: s.id, business_name: s.business_name, description: s.description, state: s.state,
   city_area: s.city_area, address: s.address, opening_hours: s.opening_hours,
   certification_notes: s.certification_notes, services: s.services,
   avg_rating: s.avg_rating, review_count: s.review_count, created_at: s.created_at,
-  phone: viewer ? s.phone : undefined,
 });
 
 const ownShop = (s) => ({ ...publicShop(s, true), verification_status: s.verification_status, verification_note: s.verification_note });

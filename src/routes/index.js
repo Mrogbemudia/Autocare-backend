@@ -7,6 +7,8 @@ import admin from './admin.routes.js';
 import vehicles from './vehicles.routes.js';
 import serviceRequests from './serviceRequests.routes.js';
 import workOrders from './workOrders.routes.js';
+import grading from './grading.routes.js';
+import featureRoutes from './feature.routes.js';
 
 const r = Router();
 r.get('/health', asyncHandler(async (req, res) => {
@@ -19,4 +21,6 @@ r.use('/admin', admin);
 r.use('/vehicles', vehicles);
 r.use('/', serviceRequests);
 r.use('/', workOrders);
+r.use('/grading', grading);
+r.use('/', featureRoutes);
 export default r;

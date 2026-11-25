@@ -6,6 +6,7 @@ import { signAccessToken, generateRefreshToken, hashToken } from '../utils/token
 import * as users from '../queries/users.queries.js';
 import * as refresh from '../queries/refreshTokens.queries.js';
 import * as shops from '../queries/shops.queries.js';
+import * as features from '../queries/features.queries.js';
 
 const ROUNDS = 12;
 // Compared against when the email is unknown, so login takes about the same time either way.
@@ -14,7 +15,7 @@ const DUMMY_HASH = bcrypt.hashSync('kaza-dummy-password', ROUNDS);
 const isUnique = (err, constraint) => err?.code === '23505' && err.constraint === constraint;
 
 export const toPublicUser = (u) => ({
-  id: u.id, email: u.email, fullName: u.full_name, phone: u.phone, role: u.role,
+  id: u.id, email: u.email, fullName: u.full_name, role: u.role,
 }); // password_hash is never included
 
 const toShopSummary = (s) => s && ({
@@ -50,6 +51,7 @@ export async function registerShop(input) {
       if (types.length !== new Set(input.serviceCodes).size) {
         throw badRequest('One or more service types are not recognised', 'UNKNOWN_SERVICE_TYPE');
       }
+
       const user = await users.insertUser({ ...input, passwordHash, role: 'shop' }, client);
       const shop = await shops.insertShop({ ...input, userId: user.id }, client);
       await shops.replaceShopServices(shop.id, types.map((t) => t.id), client);
@@ -66,6 +68,32 @@ export async function registerShop(input) {
   }
 }
 
+export async function registerPartsShop(input) {
+  const passwordHash = await bcrypt.hash(input.password, ROUNDS);
+  try {
+    return await withTransaction(async (client) => {
+      const user = await users.insertUser({ ...input, passwordHash, role: 'parts_shop' }, client);
+      const partsShop = await features.createPartsShop({
+        userId: user.id,
+        businessName: input.businessName,
+        state: input.state,
+        cityArea: input.cityArea,
+        address: input.address,
+        description: input.description,
+        openingHours: input.openingHours,
+        offersPickup: input.offersPickup,
+        offersDelivery: input.offersDelivery,
+        deliveryFeeKobo: input.deliveryFeeKobo,
+      }, client);
+      const session = await startSession(user, client);
+      return { user: toPublicUser(user), partsShop, session };
+    });
+  } catch (err) {
+    if (isUnique(err, 'users_email_unique')) throw conflict('EMAIL_TAKEN', 'An account with this email already exists.');
+    throw err;
+  }
+}
+
 export async function login({ email, password }) {
   const user = await users.findUserByEmail(email);
   const passwordOk = await bcrypt.compare(password, user?.password_hash ?? DUMMY_HASH);
@@ -74,7 +102,8 @@ export async function login({ email, password }) {
   }
   const session = await withTransaction((client) => startSession(user, client));
   const shop = user.role === 'shop' ? toShopSummary(await shops.findShopByUserId(user.id)) : undefined;
-  return { user: toPublicUser(user), shop, session };
+  const partsShop = user.role === 'parts_shop' ? await features.getPartsShopByUser(user.id) : undefined;
+  return { user: toPublicUser(user), shop, partsShop, session };
 }
 
 export async function refreshSession(rawToken) {
@@ -104,5 +133,6 @@ export async function logout(rawToken) {
 
 export async function getMe(user) {
   const shop = user.role === 'shop' ? toShopSummary(await shops.findShopByUserId(user.id)) : undefined;
-  return { user: toPublicUser(user), shop };
+  const partsShop = user.role === 'parts_shop' ? await features.getPartsShopByUser(user.id) : undefined;
+  return { user: toPublicUser(user), shop, partsShop };
 }
