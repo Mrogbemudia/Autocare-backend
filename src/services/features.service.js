@@ -329,12 +329,17 @@ export async function createCall(user, body) {
 }
 
 export async function incomingCalls(user) {
-  const { rows } = await query(
-    `SELECT c.*,u.full_name AS caller_name
-       FROM call_sessions c JOIN users u ON u.id=c.initiated_by
-      WHERE c.recipient_id=$1 AND c.status IN ('requested','ringing')
-      ORDER BY c.created_at DESC`, [user.id]);
-  return rows;
+  try {
+    const { rows } = await query(
+      `SELECT c.*,u.full_name AS caller_name
+         FROM call_sessions c JOIN users u ON u.id=c.initiated_by
+        WHERE c.recipient_id=$1 AND c.status IN ('requested','ringing')
+        ORDER BY c.created_at DESC`, [user.id]);
+    return rows;
+  } catch (err) {
+    if (err?.code === '42P01') return [];
+    throw err;
+  }
 }
 
 export async function updateCall(user, callId, status) {

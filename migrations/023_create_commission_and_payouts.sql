@@ -19,7 +19,7 @@ CREATE TABLE payment_splits (
   payment_id      UUID NOT NULL REFERENCES payments (id) ON DELETE RESTRICT,
   shop_id         UUID NOT NULL REFERENCES shops (id) ON DELETE RESTRICT,
   payment_type    TEXT NOT NULL CHECK (payment_type IN ('labor', 'parts', 'call_out')),
-  tier_at_payment TEXT NOT NULL CHECK (tier IN ('verified', 'certified', 'elite')),
+  tier_at_payment TEXT NOT NULL CHECK (tier_at_payment IN ('verified', 'certified', 'elite')),
   gross_kobo      BIGINT NOT NULL CHECK (gross_kobo > 0),
   rate_bps        INTEGER NOT NULL CHECK (rate_bps BETWEEN 0 AND 10000),
   commission_kobo BIGINT NOT NULL CHECK (commission_kobo >= 0),
