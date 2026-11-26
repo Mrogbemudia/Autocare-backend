@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { receiveDocuments } from '../middleware/documentUpload.js';
+import { validate } from '../middleware/validate.js';
 import { badRequest } from '../utils/httpError.js';
 import { z } from 'zod';
 import { idParams } from '../validators/common.js';
