@@ -8,9 +8,9 @@ const SORTS = {
 const escapeLike = (s) => s.replace(/[\\%_]/g, '\\$&');
 
 const SHOP_SELECT = `
-  SELECT s.id, s.user_id, s.business_name, s.description, s.state, s.city_area, s.address,
+  SELECT s.id, s.business_name, s.description, s.state, s.city_area, s.address,
          s.opening_hours, s.certification_notes, s.verification_status, s.verification_note,
-         s.created_at, u.phone,
+         s.sells_parts, s.created_at, s.user_id AS owner_user_id,
          r.avg_rating, COALESCE(r.review_count, 0) AS review_count,
          (SELECT COALESCE(json_agg(json_build_object('code', st.code, 'label', st.label) ORDER BY st.code), '[]'::json)
             FROM shop_services ss JOIN service_types st ON st.id = ss.service_type_id
@@ -39,10 +39,10 @@ export async function findServiceTypesByCodes(codes, client) {
 
 export async function insertShop(f, client) {
   const { rows } = await client.query(
-    `INSERT INTO shops (user_id, business_name, description, state, city_area, address, opening_hours, certification_notes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    `INSERT INTO shops (user_id, business_name, description, state, city_area, address, opening_hours, certification_notes, sells_parts)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
     [f.userId, f.businessName, f.description ?? null, f.state, f.cityArea, f.address,
-     f.openingHours ?? null, f.certificationNotes ?? null],
+     f.openingHours ?? null, f.certificationNotes ?? null, f.sellsParts ?? false],
   );
   return rows[0];
 }
@@ -112,11 +112,12 @@ export async function updateShop(shopId, f, client) {
         address             = COALESCE($6::text, address),
         certification_notes = COALESCE($7::text, certification_notes),
         opening_hours       = COALESCE($8::text, opening_hours),
+        sells_parts         = COALESCE($9::boolean, sells_parts),
         updated_at          = now()
       WHERE id = $1
       RETURNING id`,
     [shopId, f.businessName ?? null, f.description ?? null, f.state ?? null, f.cityArea ?? null,
-     f.address ?? null, f.certificationNotes ?? null, f.openingHours ?? null],
+     f.address ?? null, f.certificationNotes ?? null, f.openingHours ?? null, f.sellsParts ?? null],
   );
   return rows[0] ?? null;
 }
@@ -177,7 +178,8 @@ export async function getAdminStats() {
 export async function listShopsForAdmin({ status, limit, offset }) {
   const { rows: c } = await query('SELECT count(*) AS total FROM shops WHERE verification_status = $1', [status]);
   const { rows } = await query(
-    `${SHOP_SELECT.replace('u.phone,', 'u.full_name AS owner_name,')}
+    `${SHOP_SELECT.replace('s.sells_parts, s.created_at, s.user_id AS owner_user_id,',
+      's.sells_parts, s.created_at, s.user_id AS owner_user_id, u.full_name AS owner_name, u.email,')}
       WHERE s.verification_status = $1
       ORDER BY s.created_at ASC LIMIT $2 OFFSET $3`,
     [status, limit, offset],

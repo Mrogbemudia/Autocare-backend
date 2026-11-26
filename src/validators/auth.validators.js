@@ -24,6 +24,7 @@ export const registerShopBody = z.object({
   description: z.string().trim().max(1000).optional(),
   openingHours: z.string().trim().max(300).optional(),
   certificationNotes: z.string().trim().max(2000).optional(),
+  sellsParts: z.boolean().optional(),
 }).strict();
 
 export const registerPartsShopBody = z.object({

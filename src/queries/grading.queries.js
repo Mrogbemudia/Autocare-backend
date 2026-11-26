@@ -18,21 +18,25 @@ export async function listActiveQuestions(kind, years, client) {
   return rows;
 }
 
-export async function listQuestionsByAttempt(attemptId, client) {
+export async function listQuestionsByAttempt(attemptId, language = 'en', client) {
   const { rows } = await run(client,
     // correct_index is deliberately NOT selected: the answer key never leaves the server.
-    `SELECT q.id, q.body, q.options, a.position
+    `SELECT q.id, COALESCE(t.body,q.body) AS body,
+            COALESCE(t.options,q.options) AS options,
+            COALESCE(t.audio_url,q.audio_url) AS audio_url, a.position
        FROM grading_attempt_questions a
        JOIN grading_questions q ON q.id = a.question_id
+       LEFT JOIN grading_question_translations t
+         ON t.question_id=q.id AND t.language=$2 AND t.reviewed_at IS NOT NULL
       WHERE a.attempt_id = $1
-      ORDER BY a.position`, [attemptId]);
+      ORDER BY a.position`, [attemptId,language]);
   return rows;
 }
 
-export async function createAttempt({ shopId, kind, claimedYears }, client) {
+export async function createAttempt({ shopId, kind, claimedYears, mode, language }, client) {
   const { rows } = await run(client,
-    `INSERT INTO grading_attempts (shop_id, kind, claimed_years)
-     VALUES ($1, $2, $3) RETURNING id, started_at`, [shopId, kind, claimedYears]);
+    `INSERT INTO grading_attempts (shop_id, kind, claimed_years, mode, language)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id, started_at`, [shopId, kind, claimedYears, mode, language]);
   return rows[0];
 }
 
@@ -45,7 +49,7 @@ export async function insertAttemptQuestions(attemptId, questionIds, client) {
 
 export async function findOpenAttempt(shopId, kind, client) {
   const { rows } = await run(client,
-    `SELECT id, started_at FROM grading_attempts
+    `SELECT id, started_at, mode, language FROM grading_attempts
       WHERE shop_id = $1 AND kind = $2 AND submitted_at IS NULL
       ORDER BY started_at DESC LIMIT 1`, [shopId, kind]);
   return rows[0] ?? null;

@@ -3,13 +3,15 @@ import { badRequest, conflict, notFound } from '../utils/httpError.js';
 import { offsetOf, pageMeta } from '../utils/respond.js';
 import * as shops from '../queries/shops.queries.js';
 import * as users from '../queries/users.queries.js';
+import * as features from '../queries/features.queries.js';
 
 // Phone numbers are deliberately omitted from every shop response, including authenticated views.
 const publicShop = (s) => ({
-  id: s.id, business_name: s.business_name, description: s.description, state: s.state,
+  id: s.id, owner_user_id: s.owner_user_id, business_name: s.business_name, description: s.description, state: s.state,
   city_area: s.city_area, address: s.address, opening_hours: s.opening_hours,
   certification_notes: s.certification_notes, services: s.services,
   avg_rating: s.avg_rating, review_count: s.review_count, created_at: s.created_at,
+  sells_parts: Boolean(s.sells_parts),
 });
 
 const ownShop = (s) => ({ ...publicShop(s, true), verification_status: s.verification_status, verification_note: s.verification_note });
@@ -28,7 +30,8 @@ export async function getPublic(id, viewer) {
 export async function getMine(user) {
   const shop = await shops.findShopByUserId(user.id);
   if (!shop) throw notFound('Shop profile not found');
-  return ownShop(shop);
+  const partsShop = await features.getPartsShopByUser(user.id);
+  return { ...ownShop(shop), has_parts_shop_profile: Boolean(partsShop) };
 }
 
 export async function updateMine(user, body) {
@@ -45,7 +48,18 @@ export async function updateMine(user, body) {
     }
     if (body.phone) await users.updateUserPhone(user.id, body.phone, client);
     await shops.updateShop(shop.id, body, client);
-    return ownShop(await shops.findShopById(shop.id, client));
+    const updatedShop = await shops.findShopById(shop.id, client);
+    if (body.sellsParts === true && !(await features.getPartsShopByUser(user.id, client))) {
+      await features.createPartsShop({
+        userId: user.id,
+        businessName: updatedShop.business_name,
+        state: updatedShop.state,
+        cityArea: updatedShop.city_area,
+        address: updatedShop.address,
+        description: updatedShop.description,
+      }, client);
+    }
+    return ownShop(updatedShop);
   });
 }
 

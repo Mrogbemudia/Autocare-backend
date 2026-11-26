@@ -4,6 +4,7 @@ const REQUEST_SELECT = `
   SELECT sr.id, sr.owner_id, sr.vehicle_id, sr.shop_id, sr.symptoms, sr.urgency, sr.location_type,
          sr.service_address, sr.status, sr.created_at, sr.updated_at,
          s.business_name AS shop_name, s.user_id AS shop_user_id,
+         s.user_id AS shop_owner_user_id,
          v.vehicle_type, v.make, v.model, v.year, v.plate_number,
          ou.full_name AS owner_name,
          (SELECT COALESCE(json_agg(json_build_object(
@@ -27,9 +28,12 @@ const REQUEST_SELECT = `
          (SELECT COALESCE(json_agg(json_build_object(
                    'id', b.id, 'proposed_at', b.proposed_at, 'status', b.status,
                    'decline_reason', b.decline_reason, 'responded_at', b.responded_at,
-                   'created_at', b.created_at)
+                   'created_at', b.created_at,
+                   'owner_user_id', sr.owner_id,
+                   'shop_owner_user_id', s.user_id)
                  ORDER BY b.created_at DESC), '[]'::json)
             FROM bookings b JOIN quotes bq ON bq.id = b.quote_id
+            JOIN shops s ON s.id = sr.shop_id
            WHERE bq.service_request_id = sr.id) AS bookings
     FROM service_requests sr
     JOIN shops    s  ON s.id  = sr.shop_id

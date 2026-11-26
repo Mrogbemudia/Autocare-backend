@@ -15,6 +15,70 @@ export async function getPartsShopByUser(userId, client) {
   return rows[0] ?? null;
 }
 
+export async function getPartsShopById(id) {
+  const { rows } = await pool.query(
+    'SELECT id,verification_status FROM parts_shops WHERE id=$1',[id]);
+  return rows[0] ?? null;
+}
+
+export async function listPartsShopsForAdmin({ status, limit, offset }) {
+  const { rows } = await pool.query(
+    `SELECT ps.id, ps.business_name, ps.state, ps.city_area, ps.address, ps.description,
+            ps.verification_status, ps.verification_note, ps.created_at,
+            u.full_name AS owner_name, u.email,
+            (SELECT coalesce(json_agg(json_build_object(
+              'id',d.id,'doc_type',d.doc_type,'label',d.label,'reference_number',d.reference_number,
+              'public_id',d.public_id,'resource_type',d.resource_type,'format',d.format,'version',d.version,
+              'status',d.status,'review_note',d.review_note,'created_at',d.created_at)
+              ORDER BY d.created_at DESC),'[]'::json)
+               FROM verification_documents d WHERE d.owner_type='parts_shop' AND d.owner_id=ps.id) AS documents
+       FROM parts_shops ps JOIN users u ON u.id=ps.user_id
+      WHERE ps.verification_status=$1
+      ORDER BY ps.created_at ASC LIMIT $2 OFFSET $3`,
+    [status,limit,offset]);
+  return rows;
+}
+
+export async function transitionPartsShopVerification({ shopId, from, to, adminId, note }) {
+  const { rows } = await pool.query(
+    `UPDATE parts_shops SET verification_status=$3, verification_note=$4,
+       verified_at=CASE WHEN $3='verified' THEN now() ELSE NULL END,
+       verified_by=$5, updated_at=now()
+     WHERE id=$1 AND verification_status=ANY($2::text[])
+     RETURNING id, verification_status, verification_note, verified_at`,
+    [shopId,from,to,note ?? null,adminId]);
+  return rows[0] ?? null;
+}
+
+export async function listInterviewQueue() {
+  const { rows } = await pool.query(
+    `SELECT ir.id,ir.kind,ir.language,ir.claimed_years,ir.status,ir.interviewer_id,
+            ir.scheduled_at,ir.created_at,s.business_name,s.user_id AS shop_user_id
+       FROM interview_requests ir JOIN shops s ON s.id=ir.shop_id
+      WHERE ir.status IN ('requested','scheduled','in_progress')
+      ORDER BY CASE ir.status WHEN 'requested' THEN 0 ELSE 1 END,ir.created_at ASC`);
+  return rows;
+}
+
+export async function scheduleInterview(id, interviewerId, scheduledAt) {
+  const { rows } = await pool.query(
+    `UPDATE interview_requests SET status='scheduled',interviewer_id=$2,scheduled_at=$3,updated_at=now()
+      WHERE id=$1 AND status IN ('requested','scheduled')
+      RETURNING id,kind,language,status,interviewer_id,scheduled_at`,
+    [id,interviewerId,scheduledAt]);
+  return rows[0] ?? null;
+}
+
+export async function updateInterviewStatus(id, userId, role, status) {
+  const { rows } = await pool.query(
+    `UPDATE interview_requests SET status=$3,updated_at=now()
+      WHERE id=$1 AND ($2='admin' OR interviewer_id=$4)
+        AND status IN ('scheduled','in_progress')
+      RETURNING id,status,interviewer_id,scheduled_at`,
+    [id,role,status,userId]);
+  return rows[0] ?? null;
+}
+
 export async function updatePartsShop(id, data, client) {
   const { rows } = await run(client,
     `UPDATE parts_shops SET business_name=COALESCE($2,business_name),description=COALESCE($3,description),
@@ -28,7 +92,8 @@ export async function updatePartsShop(id, data, client) {
 }
 
 export async function listParts({ state, cityArea, search, limit, offset }) {
-  const where = ["ps.verification_status='verified'", 'p.is_active'];
+  const where = ["ps.verification_status='verified'", 'p.is_active',
+    'NOT EXISTS (SELECT 1 FROM shops s WHERE s.user_id=ps.user_id AND s.sells_parts=FALSE)'];
   const params = [];
   if (state) { params.push(state); where.push(`ps.state=$${params.length}`); }
   if (cityArea) { params.push(`%${cityArea}%`); where.push(`ps.city_area ILIKE $${params.length}`); }
@@ -106,7 +171,7 @@ export async function getPartById(id, client) {
 export async function listPartsOrders({ buyerId, partsShopId }) {
   const where = buyerId ? 'po.buyer_id=$1' : 'po.parts_shop_id=$1';
   const { rows } = await pool.query(
-    `SELECT po.*, ps.business_name,
+    `SELECT po.*, ps.business_name, ps.user_id AS parts_shop_user_id,
       (SELECT coalesce(json_agg(json_build_object('partId',poi.part_id,'name',poi.name_snapshot,'qty',poi.qty,'unitPrice',poi.unit_price_kobo,'lineTotal',poi.qty*poi.unit_price_kobo)),'[]'::json)
        FROM parts_order_items poi WHERE poi.order_id=po.id) AS items
      FROM parts_orders po JOIN parts_shops ps ON ps.id=po.parts_shop_id
@@ -138,6 +203,18 @@ export async function updatePartsOrderStatus(id, userId, status, note, latitude,
     'INSERT INTO parts_order_events (order_id,status,note,latitude,longitude,actor_id) VALUES ($1,$2,$3,$4,$5,$6)',
     [id,status,note ?? null,latitude ?? null,longitude ?? null,userId]);
   return rows[0];
+}
+
+export async function updatePartsDeliveryLocation(id, userId, latitude, longitude, client) {
+  const { rows } = await run(client,
+    `UPDATE parts_deliveries d
+        SET last_latitude=$3,last_longitude=$4,last_position_at=now()
+       FROM parts_orders po JOIN parts_shops ps ON ps.id=po.parts_shop_id
+      WHERE d.order_id=$1 AND po.id=d.order_id AND po.parts_shop_id=ps.id
+        AND ps.user_id=$2 AND po.fulfilment_type='delivery'
+      RETURNING d.order_id,d.last_latitude,d.last_longitude,d.last_position_at`,
+    [id,userId,latitude,longitude]);
+  return rows[0] ?? null;
 }
 
 export async function insertVerificationDocument(ownerType, ownerId, doc, client) {

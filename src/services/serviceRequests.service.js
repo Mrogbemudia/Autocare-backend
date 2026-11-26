@@ -9,7 +9,7 @@ import * as quotes from '../queries/quotes.queries.js';
 import * as bookings from '../queries/bookings.queries.js';
 import { deleteRepairMedia, mediaDeliveryUrl, uploadRepairMedia } from './cloudinary.service.js';
 
-const strip = ({ shop_user_id, ...rest }) => rest; // internal field, never sent to clients
+const strip = ({ shop_user_id, ...rest }) => rest;
 const withMediaUrls = (row) => ({
   ...row,
   media: (row.media ?? []).map((media) => ({ ...media, url: mediaDeliveryUrl(media) })),

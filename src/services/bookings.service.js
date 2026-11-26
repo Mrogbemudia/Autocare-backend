@@ -34,7 +34,10 @@ export async function confirm(user, bookingId) {
     }, client);
     await workOrders.insertStatusHistory({ workOrderId: id, fromStatus: null, toStatus: 'inspection',
       changedBy: user.id, note: 'Booking confirmed. Job created.' }, client);
-    return { bookingId, status: 'confirmed', workOrderId: id };
+    return {
+      bookingId, status: 'confirmed', workOrderId: id,
+      owner_user_id: b.owner_id, shop_owner_user_id: b.shop_user_id,
+    };
   });
 }
 

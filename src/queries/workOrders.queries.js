@@ -6,6 +6,7 @@ const WORK_ORDER_SELECT = `
          COALESCE((SELECT SUM(e.extra_cost_kobo) FROM extra_work_requests e
                     WHERE e.work_order_id = wo.id AND e.status = 'approved'), 0)::bigint AS approved_extras_kobo,
          s.business_name AS shop_name, s.user_id AS shop_user_id,
+         s.user_id AS shop_owner_user_id,
          v.vehicle_type, v.make, v.model, v.year, v.plate_number,
          ou.full_name AS owner_name,
          (SELECT json_build_object(

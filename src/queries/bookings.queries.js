@@ -2,7 +2,11 @@ import { query } from '../db.js';
 
 export async function insertBooking({ quoteId, proposedAt }, client) {
   const { rows } = await client.query(
-    'INSERT INTO bookings (quote_id, proposed_at) VALUES ($1, $2) RETURNING id, quote_id, proposed_at, status, created_at',
+    `INSERT INTO bookings (quote_id, proposed_at) VALUES ($1, $2)
+     RETURNING id, quote_id, proposed_at, status, created_at,
+       (SELECT sr.owner_id FROM quotes q JOIN service_requests sr ON sr.id=q.service_request_id WHERE q.id=$1) AS owner_user_id,
+       (SELECT s.user_id FROM quotes q JOIN service_requests sr ON sr.id=q.service_request_id
+          JOIN shops s ON s.id=sr.shop_id WHERE q.id=$1) AS shop_owner_user_id`,
     [quoteId, proposedAt],
   );
   return rows[0];
@@ -13,7 +17,7 @@ export async function findBookingForUpdate(id, client) {
     `SELECT b.id, b.quote_id, b.proposed_at, b.status,
             q.service_request_id, q.total_kobo,
             sr.owner_id, sr.shop_id, sr.vehicle_id, sr.status AS request_status,
-            s.user_id AS shop_user_id
+            s.user_id AS shop_user_id, s.user_id AS shop_owner_user_id
        FROM bookings b
        JOIN quotes q            ON q.id  = b.quote_id
        JOIN service_requests sr ON sr.id = q.service_request_id
@@ -47,8 +51,11 @@ export async function findAcceptedQuote(requestId, client) {
 
 export async function listBookingsForRequest(requestId) {
   const { rows } = await query(
-    `SELECT b.id, b.quote_id, b.proposed_at, b.status, b.decline_reason, b.responded_at, b.created_at
+    `SELECT b.id, b.quote_id, b.proposed_at, b.status, b.decline_reason, b.responded_at, b.created_at,
+            sr.owner_id AS owner_user_id, s.user_id AS shop_owner_user_id
        FROM bookings b JOIN quotes q ON q.id = b.quote_id
+       JOIN service_requests sr ON sr.id=q.service_request_id
+       JOIN shops s ON s.id=sr.shop_id
       WHERE q.service_request_id = $1 ORDER BY b.created_at DESC`,
     [requestId],
   );

@@ -19,21 +19,23 @@ async function requireShop(userId, client) {
   return shop;
 }
 
-async function presentAttempt(attemptId, startedAt) {
-  const questions = await q.listQuestionsByAttempt(attemptId);
+async function presentAttempt(attemptId, startedAt, language = 'en', mode = 'text') {
+  const questions = await q.listQuestionsByAttempt(attemptId, language);
   return {
     attemptId,
+    language,
+    mode,
     expiresAt: new Date(new Date(startedAt).getTime() + 60 * 60_000),
-    questions: questions.map(({ id, body, options }) => ({ id, body, options })),
+    questions: questions.map(({ id, body, options, audio_url }) => ({ id, body, options, audioUrl: audio_url })),
   };
 }
 
-export async function startAttempt(userId, { kind, claimedYears }) {
+export async function startAttempt(userId, { kind, claimedYears, mode = 'text', language = 'en' }) {
   const shop = await requireShop(userId);
 
   const open = await q.findOpenAttempt(shop.id, kind);
   if (open) {
-    if (!isExpired(open.started_at)) return presentAttempt(open.id, open.started_at); // same paper, no re-rolling
+    if (!isExpired(open.started_at)) return presentAttempt(open.id, open.started_at, open.language, open.mode); // same paper, no re-rolling
     await q.finishAttempt(open.id, { scorePct: 0, passed: false });                   // abandoned = failed
   }
 
@@ -53,11 +55,11 @@ export async function startAttempt(userId, { kind, claimedYears }) {
   }
 
   const attempt = await withTransaction(async (client) => {
-    const a = await q.createAttempt({ shopId: shop.id, kind, claimedYears: years }, client);
+    const a = await q.createAttempt({ shopId: shop.id, kind, claimedYears: years, mode, language }, client);
     await q.insertAttemptQuestions(a.id, picked.map((p) => p.id), client);
     return a;
   });
-  return presentAttempt(attempt.id, attempt.started_at);
+  return presentAttempt(attempt.id, attempt.started_at, language, mode);
 }
 
 export async function submitAttempt(userId, attemptId, answerList) {

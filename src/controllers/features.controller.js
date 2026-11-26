@@ -22,6 +22,8 @@ export const buyerOrders = asyncHandler(async (req,res) => ok(res,await service.
 export const vendorOrders = asyncHandler(async (req,res) => ok(res,await service.listVendorOrders(req.user)));
 export const getOrder = asyncHandler(async (req,res) => ok(res,await service.getOrder(req.user,req.params.orderId)));
 export const updateOrderStatus = asyncHandler(async (req,res) => ok(res,await service.updateOrderStatus(req.user,req.params.orderId,req.body.status,req.body.note,req.body.latitude,req.body.longitude)));
+export const updateDeliveryLocation = asyncHandler(async (req,res) =>
+  ok(res,await service.updateDeliveryLocation(req.user,req.params.orderId,req.body.latitude,req.body.longitude)));
 export const maintenance = asyncHandler(async (req,res) => ok(res,await service.maintenanceDashboard(req.user)));
 export const setMaintenanceRule = asyncHandler(async (req,res) => ok(res,await service.setMaintenanceRule(req.user,req.body)));
 export const reminderSettings = asyncHandler(async (req,res) => ok(res,await service.setReminderSettings(req.user,req.body)));
@@ -30,8 +32,21 @@ export const applyInsurance = asyncHandler(async (req,res) => created(res,await 
 export const myInsurance = asyncHandler(async (req,res) => ok(res,await service.myInsuranceRequests(req.user)));
 export const requestInterview = asyncHandler(async (req,res) => created(res,await service.requestInterview(req.user,req.body)));
 export const listInterviews = asyncHandler(async (req,res) => ok(res,await service.listInterviewRequests(req.user)));
+export const adminPartsShops = asyncHandler(async (req,res) => {
+  const result = await service.adminListPartsShops(
+    req.query.status,Number(req.query.page ?? 1),Number(req.query.pageSize ?? 20));
+  ok(res,result.data,result.meta);
+});
+export const adminPartsShopDecision = (action) => asyncHandler(async (req,res) =>
+  ok(res,await service.adminDecidePartsShop(action,req.params.id,req.user.id,req.body.note)));
+export const interviewQueue = asyncHandler(async (req,res) => ok(res,await service.interviewQueue()));
+export const scheduleInterview = asyncHandler(async (req,res) =>
+  ok(res,await service.scheduleInterview(req.user,req.params.id,req.body.scheduledAt)));
+export const updateInterviewStatus = asyncHandler(async (req,res) =>
+  ok(res,await service.updateInterviewStatus(req.user,req.params.id,req.body.status)));
 export const createCall = asyncHandler(async (req,res) => created(res,await service.createCall(req.user,req.body)));
 export const incomingCalls = asyncHandler(async (req,res) => ok(res,await service.incomingCalls(req.user)));
 export const updateCall = asyncHandler(async (req,res) => ok(res,await service.updateCall(req.user,req.params.callId,req.body.status)));
+export const getCall = asyncHandler(async (req,res) => ok(res,await service.getCall(req.user,req.params.callId)));
 export const addCallSignal = asyncHandler(async (req,res) => created(res,await service.addCallSignal(req.user,req.params.callId,req.body.kind,req.body.payload)));
 export const callSignals = asyncHandler(async (req,res) => ok(res,await service.callSignals(req.user,req.params.callId,req.query.after)));

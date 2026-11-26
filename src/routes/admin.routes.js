@@ -4,6 +4,7 @@ import { authenticate, requireRole } from '../middleware/auth.js';
 import { idParams } from '../validators/common.js';
 import { adminListQuery, approveBody, reasonBody } from '../validators/shops.validators.js';
 import * as c from '../controllers/shops.controller.js';
+import * as features from '../controllers/features.controller.js';
 
 const r = Router();
 r.use(authenticate, requireRole('admin'));
@@ -12,4 +13,8 @@ r.get('/shops', validate({ query: adminListQuery }), c.adminList);
 r.post('/shops/:id/verify',  validate({ params: idParams, body: approveBody }), c.adminDecision('verify'));
 r.post('/shops/:id/reject',  validate({ params: idParams, body: reasonBody }),  c.adminDecision('reject'));
 r.post('/shops/:id/suspend', validate({ params: idParams, body: reasonBody }),  c.adminDecision('suspend'));
+r.get('/parts-shops', validate({ query: adminListQuery }), features.adminPartsShops);
+r.post('/parts-shops/:id/verify', validate({ params: idParams, body: approveBody }), features.adminPartsShopDecision('verify'));
+r.post('/parts-shops/:id/reject', validate({ params: idParams, body: reasonBody }), features.adminPartsShopDecision('reject'));
+r.post('/parts-shops/:id/suspend', validate({ params: idParams, body: reasonBody }), features.adminPartsShopDecision('suspend'));
 export default r;

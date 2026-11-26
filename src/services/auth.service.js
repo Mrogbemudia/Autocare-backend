@@ -20,7 +20,7 @@ export const toPublicUser = (u) => ({
 
 const toShopSummary = (s) => s && ({
   id: s.id, businessName: s.business_name, verificationStatus: s.verification_status,
-  verificationNote: s.verification_note,
+  verificationNote: s.verification_note, sellsParts: Boolean(s.sells_parts),
 });
 
 async function startSession(user, client) {
@@ -55,10 +55,21 @@ export async function registerShop(input) {
       const user = await users.insertUser({ ...input, passwordHash, role: 'shop' }, client);
       const shop = await shops.insertShop({ ...input, userId: user.id }, client);
       await shops.replaceShopServices(shop.id, types.map((t) => t.id), client);
+      if (input.sellsParts) {
+        await features.createPartsShop({
+          userId: user.id,
+          businessName: input.businessName,
+          state: input.state,
+          cityArea: input.cityArea,
+          address: input.address,
+          description: input.description,
+          openingHours: input.openingHours,
+        }, client);
+      }
       const session = await startSession(user, client);
       return {
         user: toPublicUser(user),
-        shop: { id: shop.id, businessName: input.businessName, verificationStatus: 'pending' },
+        shop: { id: shop.id, businessName: input.businessName, verificationStatus: 'pending', sellsParts: Boolean(input.sellsParts) },
         session,
       };
     });
